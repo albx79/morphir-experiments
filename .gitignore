@@ -1,0 +1,6 @@
+dist/
+elm-stuff/
+morphir-hashes.json
+morphir-ir.json
+node_modules/
+out/
