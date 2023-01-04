@@ -4,3 +4,6 @@ morphir-hashes.json
 morphir-ir.json
 node_modules/
 out/
+.lobo
+.bsp
+target/
