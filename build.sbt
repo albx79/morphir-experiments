@@ -13,10 +13,10 @@ lazy val root = (project in file("."))
     name := "Morphir Experiments",
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion,
-//      "dev.zio" %% "zio-http" % "0.0.3",
-      "io.d11"        %% "zhttp" % "2.0.0-RC11",
+      "dev.zio" %% "zio-streams" % zioVersion,
+      "dev.zio" %% "zio-cli" % "0.3.0-M02",
+      "io.d11"  %% "zhttp" % "2.0.0-RC11",
       "dev.zio" %% "zio-json" % "0.4.2",
-//      "org.morphir" %% "morphir-scala" % "0.10.0",
       "org.morphir" %% "morphir-sdk-core" % "0.10.0",
       scalaTest % Test
     )

@@ -1,19 +1,64 @@
 package app
 
-import morphir.example.app.ScumAndVillainy.{Outcome, Rolls, SuccessLevel}
+import morphir.example.app.ScumAndVillainy.{Outcome, Rolls, SuccessLevel, outcomeOfRolls}
 import service.Roller
 import zhttp.service.Server
-import zio.{Random, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio.{Console, Random, Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer}
 import zhttp.http._
+import zio.cli.HelpDoc.Span.text
+import zio.cli.{Args, CliApp, Command, ZIOCliDefault}
 import zio.json.internal.Write
-import zio.json.{DeriveJsonEncoder, EncoderOps, JsonEncoder}
+import zio.json.{DecoderOps, DeriveJsonDecoder, DeriveJsonEncoder, EncoderOps, JsonDecoder, JsonEncoder}
 
-object Main extends ZIOAppDefault {
-  override def run: ZIO[Environment with ZIOAppArgs with Scope,Any,Any] =
-    Server.start(
-      port = 8080,
+import java.io.{BufferedReader, FileInputStream, IOException, InputStreamReader}
+import scala.io.Source
+
+object Main extends ZIOCliDefault {
+
+  private lazy val serve = Command("serve")
+  private lazy val numOfDice = Args.integer.atLeast(0) ?? "The number of dice to roll"
+  private lazy val play = Command("play", numOfDice)
+  private lazy val cmd = Command("mesv").subcommands(serve, play)
+
+  override def cliApp: CliApp[Any with ZIOAppArgs with Scope, Any, Any] = CliApp.make(
+    name = cmd.names.head,
+    version = "0.1.0",
+    summary = text("Morphir Experiments for Scum&Villainy"),
+    command = cmd
+  ) {
+    case (n: BigInt) :: Nil => for {
+      rolls <- ZIO.succeed(Roller.randomNumbers(n.intValue))
+      outcome <- ZIO.succeed(outcomeOfRolls(rolls))
+      _ <- Console.printLine(s"Rolled $rolls which is a $outcome")
+    } yield ()
+    case () => httpWorkflow.provide(ZLayer.succeed(HttpServerConfig(8080)))
+  }
+
+  lazy val getData =
+    ZIO.acquireReleaseWith(ZIO.attemptBlocking(Source.fromFile("./dist/conf.json")))(file =>
+      ZIO.attempt(file.close()).orDie
+    )(file => ZIO.attemptBlocking(file.toString()))
+
+  lazy val httpWorkflow: ZIO[HttpServerConfig, Throwable, Unit] = for {
+    configFile <- getData
+    maybeConfData <- ZIO.attempt { configFile.fromJson[AppConfig] }
+    configData <- ZIO.fromEither(maybeConfData)
+    config <- ZIO.service[HttpServerConfig].provide(ZLayer.succeed(configData.server))
+    server <- Console.printLine(s"Serving on port ${config.port}") *> Server.start(
+      port = config.port,
       http = DiceRollingApp()
     )
+  } yield server
+}
+
+case class HttpServerConfig(port: Int) extends Serializable
+object HttpServerConfig {
+  implicit val decoder: JsonDecoder[HttpServerConfig] = DeriveJsonDecoder.gen[HttpServerConfig]
+}
+
+case class AppConfig(server: HttpServerConfig)
+object AppConfig {
+  implicit val decoder: JsonDecoder[AppConfig] = DeriveJsonDecoder.gen[AppConfig]
 }
 
 case class PlayOutcome(numbers: Rolls, outcome: Outcome)
