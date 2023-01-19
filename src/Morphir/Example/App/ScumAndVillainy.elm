@@ -13,13 +13,11 @@ type alias DiceService = { roll : Int -> Rolls}
 outcomeOfRolls : Rolls -> Outcome
 outcomeOfRolls numbers =
     let
-        maxRoll : Int
         maxRoll = Maybe.withDefault 0 (List.maximum numbers)
     in
     if maxRoll <= 3 then Bad
     else if maxRoll < 6 then Success Partial
     else let
-        numberOfSixes : Int
         numberOfSixes = numbers |> filter (\n -> n == 6) |> length
     in
     if numberOfSixes > 1

@@ -34,15 +34,14 @@ object Main extends ZIOCliDefault {
     case () => httpWorkflow.provide(ZLayer.succeed(HttpServerConfig(8080)))
   }
 
-  lazy val getData =
+  lazy val getData: ZIO[Any, Throwable, String] =
     ZIO.acquireReleaseWith(ZIO.attemptBlocking(Source.fromFile("./dist/conf.json")))(file =>
       ZIO.attempt(file.close()).orDie
     )(file => ZIO.attemptBlocking(file.toString()))
 
   lazy val httpWorkflow: ZIO[HttpServerConfig, Throwable, Unit] = for {
     configFile <- getData
-    maybeConfData <- ZIO.attempt { configFile.fromJson[AppConfig] }
-    configData <- ZIO.fromEither(maybeConfData)
+    configData <- ZIO.fromEither(configFile.fromJson[AppConfig]).mapError(e => new Exception(e))
     config <- ZIO.service[HttpServerConfig].provide(ZLayer.succeed(configData.server))
     server <- Console.printLine(s"Serving on port ${config.port}") *> Server.start(
       port = config.port,
