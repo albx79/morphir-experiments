@@ -11,7 +11,7 @@ import zio.json.internal.Write
 import zio.json.{DecoderOps, DeriveJsonDecoder, DeriveJsonEncoder, EncoderOps, JsonDecoder, JsonEncoder}
 
 import java.io.{BufferedReader, FileInputStream, IOException, InputStreamReader}
-import scala.io.Source
+import scala.io.{BufferedSource, Source}
 
 object Main extends ZIOCliDefault {
 
@@ -34,15 +34,15 @@ object Main extends ZIOCliDefault {
     case () => httpWorkflow.provide(ZLayer.succeed(HttpServerConfig(8080)))
   }
 
-  lazy val getData: ZIO[Any, Throwable, String] =
-    ZIO.acquireReleaseWith(ZIO.attemptBlocking(Source.fromFile("./dist/conf.json")))(file =>
-      ZIO.attempt(file.close()).orDie
-    )(file => ZIO.attemptBlocking(file.toString()))
+  lazy val getConfig: ZIO[Any, Throwable, AppConfig] = ZIO.scoped {
+    ZIO.fromAutoCloseable(ZIO.attemptBlocking(Source.fromFile("./dist/conf.json")))
+      .map(_.mkString.fromJson[AppConfig])
+      .flatMap(e => ZIO.fromEither(e).mapError(e => new Exception(e)))
+  }
 
   lazy val httpWorkflow: ZIO[HttpServerConfig, Throwable, Unit] = for {
-    configFile <- getData
-    configData <- ZIO.fromEither(configFile.fromJson[AppConfig]).mapError(e => new Exception(e))
-    config <- ZIO.service[HttpServerConfig].provide(ZLayer.succeed(configData.server))
+    config <- getConfig
+    config <- ZIO.service[HttpServerConfig].provide(ZLayer.succeed(config.server))
     server <- Console.printLine(s"Serving on port ${config.port}") *> Server.start(
       port = config.port,
       http = DiceRollingApp()
@@ -51,16 +51,19 @@ object Main extends ZIOCliDefault {
 }
 
 case class HttpServerConfig(port: Int) extends Serializable
+
 object HttpServerConfig {
   implicit val decoder: JsonDecoder[HttpServerConfig] = DeriveJsonDecoder.gen[HttpServerConfig]
 }
 
 case class AppConfig(server: HttpServerConfig)
+
 object AppConfig {
   implicit val decoder: JsonDecoder[AppConfig] = DeriveJsonDecoder.gen[AppConfig]
 }
 
 case class PlayOutcome(numbers: Rolls, outcome: Outcome)
+
 object PlayOutcome {
   implicit val outcomeEncoder: JsonEncoder[Outcome] = new JsonEncoder[Outcome] {
     override def unsafeEncode(a: Outcome, indent: Option[Int], out: Write): Unit = {
@@ -83,10 +86,10 @@ object DiceRollingApp {
 
   def apply(): Http[Any, Nothing, Request, Response] =
     Http.collect[Request] {
-      case Method.GET -> !! / "roll" / n  =>
+      case Method.GET -> !! / "roll" / n =>
         val result = Roller.randomNumbers(n.toInt)
         Response.json(result.toJson)
-      case Method.GET -> !! / "play" / n  =>
+      case Method.GET -> !! / "play" / n =>
         val numbers = Roller.randomNumbers(n.toInt)
         val outcome = morphir.example.app.ScumAndVillainy.outcomeOfRolls(numbers)
         val playOutcome = new PlayOutcome(numbers, outcome)
