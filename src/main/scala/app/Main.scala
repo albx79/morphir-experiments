@@ -42,8 +42,8 @@ object Main extends ZIOCliDefault {
 
   lazy val httpWorkflow: ZIO[HttpServerConfig, Throwable, Unit] = for {
     config <- getConfig
-    config <- ZIO.service[HttpServerConfig].provide(ZLayer.succeed(config.server))
-    server <- Console.printLine(s"Serving on port ${config.port}") *> Server.start(
+    config <- ZIO.log(s"Application started with $config") *> ZIO.service[HttpServerConfig].provide(ZLayer.succeed(config.server))
+    server <- ZIO.log(s"Serving on port ${config.port}") *> Server.start(
       port = config.port,
       http = DiceRollingApp()
     )
