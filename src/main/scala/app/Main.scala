@@ -2,16 +2,15 @@ package app
 
 import morphir.example.app.ScumAndVillainy.{Outcome, Rolls, SuccessLevel, outcomeOfRolls}
 import service.Roller
-import zhttp.service.Server
-import zio.{Console, Random, Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer}
 import zhttp.http._
+import zhttp.service.Server
 import zio.cli.HelpDoc.Span.text
 import zio.cli.{Args, CliApp, Command, ZIOCliDefault}
 import zio.json.internal.Write
 import zio.json.{DecoderOps, DeriveJsonDecoder, DeriveJsonEncoder, EncoderOps, JsonDecoder, JsonEncoder}
+import zio.{Console, Scope, ZIO, ZIOAppArgs, ZLayer}
 
-import java.io.{BufferedReader, FileInputStream, IOException, InputStreamReader}
-import scala.io.{BufferedSource, Source}
+import scala.io.Source
 
 object Main extends ZIOCliDefault {
 
