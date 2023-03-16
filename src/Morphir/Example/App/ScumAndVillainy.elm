@@ -3,13 +3,17 @@ module Morphir.Example.App.ScumAndVillainy exposing (..)
 import List exposing (filter, length, maximum)
 import Maybe exposing (withDefault)
 
+--type alias Enum a = {
+--    values: List a,
+--    toString: a -> String }
+
 type SuccessLevel = Critical | Full | Partial
 type Outcome = Success SuccessLevel | Bad
 type Position = Controlled | Risky | Desperate
 type EffectLevel = Zero | Limited | Standard | Great | Extreme
 type alias Rolls = List Int
 
-type alias DiceService = { roll : Int -> Rolls}
+type alias DiceService = { roll : Int -> Rolls }
 
 outcomeOfRolls : Rolls -> Outcome
 outcomeOfRolls numbers =
@@ -28,7 +32,7 @@ outcomeOfRolls numbers =
 action : Position -> SuccessLevel -> EffectLevel
 action p s = case p of
     Controlled -> case s of
-        Critical -> Great
+        Critical -> Extreme
         Full -> Great
         Partial -> Standard
     Risky -> case s of
@@ -39,3 +43,11 @@ action p s = case p of
         Critical -> Standard
         Full -> Limited
         Partial -> Limited
+
+actionRoll : Int -> Position -> EffectLevel -> DiceService -> List (Position, EffectLevel)
+actionRoll attribute startingPosition expectedEffectLevel diceService =
+    let rolls = diceService.roll attribute in
+    let outcome = outcomeOfRolls rolls in
+    case outcome of
+        Success s -> [(startingPosition, action startingPosition s)]
+        Bad -> [(startingPosition, Zero)]
